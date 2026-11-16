@@ -2,7 +2,7 @@
 
 ## Current evidence
 
-There is no retrieval benchmark, answer-quality dataset, measured latency/cost result or load test. The unit suite checks chunk overlap/content, CSV dimensions and upload signature mismatch handling. It does not call FastAPI, PostgreSQL, Qdrant or Gemini. No scores are reported here because no reproducible benchmark has been run.
+There is no retrieval benchmark, answer-quality dataset, measured latency/cost result or load test. The five executed unit checks cover chunk overlap/content, CSV dimensions, upload signature mismatch and production-secret validation. Tenant API adversarial tests are present but were skipped in this environment because PyJWT and pwdlib are not installed. No scores are reported here because no reproducible benchmark has been run.
 
 ## Benchmark design
 

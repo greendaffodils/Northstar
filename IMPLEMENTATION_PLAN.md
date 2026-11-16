@@ -54,4 +54,4 @@ Build reviewed benchmark data and reproducible retrieval/answer experiments. Set
 
 ## Current completion evidence
 
-The only verification completed for this phase is Python bytecode compilation and the existing unit test suite, run after edits. There is no verified Docker startup, Postgres/Qdrant integration, cloud deployment or realistic end-to-end user journey. No benchmark result or production-readiness claim is made.
+Verification completed for this phase: Python bytecode compilation succeeded and `pytest` reported 5 passed, 1 skipped. The skipped module contains tenant API adversarial tests because PyJWT/pwdlib are absent here. Ruff could not run because it is not installed. Docker startup, Postgres/Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No benchmark result or production-readiness claim is made.
