@@ -26,7 +26,8 @@ After migrations, seed a clean demo organization with `python -m app.seed_demo -
 - Gemini synthesis constrained to retrieved snippets, visible source markers, abstention when there are no hits, and conversation history supplied as context only.
 - Industrial relational schema for facilities, equipment, failures, maintenance, work orders, spare parts, inventory, operating metrics and safety incidents. `python -m app.seed_demo` generates deterministic, clearly synthetic records (including M-204 case data); generation refuses to mix into an organization that already has equipment data.
 - `POST /api/data/query` routes supported natural-language requests to fixed parameterized analytics for tagged-equipment failure history, compatible spare-part stock and 90-day downtime by category. Raw SQL remains rejected; unsupported requests do not execute a query.
-- Action request review queue with role-gated approval and audit events. Approval only changes request status; no external operation executes.
+- `POST /api/investigations` returns a deterministic plan with structured findings and ACL-filtered document evidence, preserving source form instead of synthesizing unchecked numeric claims.
+- Action request review queue with approval, rejection and a repeat-safe simulated execution adapter. Approved work-order proposals can create internal work-order records; no external system is contacted.
 - Web dashboard for uploads, document status, questions, evidence snippets, workflow steps, action requests and basic counts.
 - Explicit Alembic migrations, Compose API/migration/worker/database/vector services, DB-aware health check, CI workflow and unit/tenant test sets.
 
@@ -44,9 +45,10 @@ After migrations, seed a clean demo organization with `python -m app.seed_demo -
 | `DELETE /api/documents/{id}` | Admin soft-delete a document family and remove indexed content |
 | `GET /api/ingestion-jobs/{id}` | Read tenant-scoped job status and progress |
 | `POST /api/query` | Hybrid evidence retrieval and answer synthesis |
+| `POST /api/investigations` | Structured analytics plus ACL-filtered document evidence |
 | `POST /api/data/query` | Fixed tenant-scoped analytics; body `{ "question": "Show failure history for M-204" }`; raw `sql` is rejected |
-| `POST/GET /api/actions` | Request and list approval-gated actions |
-| `POST /api/actions/{id}/approve` | Admin approval record |
+| `POST/GET /api/actions` | Propose and list approval-gated actions |
+| `POST /api/actions/{id}/approve|reject|execute` | Admin review and simulated idempotent adapter |
 | `POST /api/admin/users` | Add a same-organization account |
 | `GET /api/dashboard` | Tenant-scoped counts |
 

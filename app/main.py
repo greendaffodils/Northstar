@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import math
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,7 @@ from app.core.security import current_user, require_admin, verify_password, crea
 from app.core.security import hash_password
 from app.models import Organization, User, Document, AuditEvent, ActionRequest, IngestionJob, Chunk
 from app.services.industrial_analytics import query_industrial
+from app.services.action_execution import approve_action, execute_simulated, reject_action as reject_action_service
 from app.services.ingestion import ALLOWED
 from app.services.retrieval import search
 from app.services.answering import answer
@@ -333,6 +335,31 @@ async def query(body: Ask, user: User = Depends(current_user), db: Session = Dep
                          {"step": "retrieve", "status": "completed", "detail": f"Found {len(evidence)} candidate chunks"},
                          {"step": "synthesize", "status": "completed"}]}
 
+class Investigation(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+
+@app.post("/api/investigations")
+async def investigate(body: Investigation, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if user.role not in {"admin", "owner", "engineer", "analyst"}:
+        raise HTTPException(403, "Investigations require analyst, engineer, or administrator access")
+    structured = query_industrial(db, user.organization_id, body.question)
+    evidence = await run_in_threadpool(search, db, user.organization_id, body.question,
+                                       roles=(user.role,), user_id=user.id)
+    sources = [{"marker": f"[D{i+1}]", "document_id": item["document_id"],
+                "chunk_id": item["chunk_id"], "filename": item["filename"],
+                "section": item.get("section"), "text": item["text"]} for i, item in enumerate(evidence)]
+    db.add(AuditEvent(id=str(uuid4()), organization_id=user.organization_id, actor_id=user.id,
+        event_type="investigation.completed", details={"question": body.question[:500],
+        "intent": structured["intent"], "structured_rows": len(structured["rows"]),
+        "document_sources": len(sources)}))
+    db.commit()
+    return {"question": body.question, "plan": [
+                {"step": "structured_analytics", "status": "completed", "intent": structured["intent"]},
+                {"step": "document_retrieval", "status": "completed", "source_count": len(sources)}],
+            "structured_findings": structured, "document_evidence": sources,
+            "validation": {"numeric_claims_synthesized": False,
+                           "citations": "Document evidence is individually identified; findings remain in source form."}}
+
 class DataQuery(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     sql: str | None = None
@@ -351,41 +378,52 @@ def data_query(body: DataQuery, user: User = Depends(current_user), db: Session 
     return result
 
 class Action(BaseModel):
-    kind: str = Field(pattern="^(support_ticket|draft_email|report)$")
+    kind: str = Field(pattern="^(support_ticket|draft_email|report|work_order)$")
     payload: dict
 
 @app.post("/api/actions", status_code=202)
 def request_action(body: Action, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if body.kind == "work_order":
+        if not all(isinstance(body.payload.get(key), str) and body.payload[key].strip()
+                   for key in ("equipment_tag", "description")):
+            raise HTTPException(422, "work_order payload requires equipment_tag and description")
+        if body.payload.get("priority", "normal") not in {"critical", "high", "normal", "low"}:
+            raise HTTPException(422, "work_order priority must be critical, high, normal, or low")
+        try:
+            estimated_cost = float(body.payload.get("estimated_cost", 0) or 0)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, "estimated_cost must be a non-negative number") from exc
+        if not math.isfinite(estimated_cost) or estimated_cost < 0:
+            raise HTTPException(422, "estimated_cost must be a non-negative number")
     action = ActionRequest(id=str(uuid4()), organization_id=user.organization_id, requested_by=user.id,
-                           kind=body.kind, payload=body.payload, status="pending_approval")
+                           kind=body.kind, payload=body.payload, status="pending_approval",
+                           idempotency_key=str(uuid4()), execution_result={})
     db.add(action)
     db.add(AuditEvent(id=str(uuid4()), organization_id=user.organization_id, actor_id=user.id,
                       event_type="action.requested", details={"action_id": action.id, "kind": body.kind}))
     db.commit()
     return {"id": action.id, "status": action.status,
-            "message": "Action recorded for administrator approval; no external side effect was performed."}
+            "message": "Action recorded for administrator approval; no adapter has run."}
 
 @app.get("/api/actions")
 def pending_actions(user: User = Depends(current_user), db: Session = Depends(get_db)):
     rows = db.scalars(select(ActionRequest).where(ActionRequest.organization_id == user.organization_id)
                       .order_by(ActionRequest.created_at.desc())).all()
     return [{"id": a.id, "kind": a.kind, "payload": a.payload, "status": a.status,
+             "execution_result": a.execution_result,
              "created_at": a.created_at} for a in rows]
 
 @app.post("/api/actions/{action_id}/approve")
 def approve(action_id: str, user: User = Depends(require_admin), db: Session = Depends(get_db)):
-    action = db.scalar(select(ActionRequest).where(ActionRequest.id == action_id,
-                                                    ActionRequest.organization_id == user.organization_id))
-    if not action:
-        raise HTTPException(404, "Action not found")
-    if action.status != "pending_approval":
-        raise HTTPException(409, "Action is not pending")
-    action.status = "approved"
-    db.add(AuditEvent(id=str(uuid4()), organization_id=user.organization_id, actor_id=user.id,
-                      event_type="action.approved", details={"action_id": action.id}))
-    db.commit()
-    return {"id": action.id, "status": action.status,
-            "message": "Approved. Connect a reviewed tool adapter to execute this action."}
+    return approve_action(action_id, user.organization_id, user.id, db)
+
+@app.post("/api/actions/{action_id}/reject")
+def reject_action(action_id: str, user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return reject_action_service(action_id, user.organization_id, user.id, db)
+
+@app.post("/api/actions/{action_id}/execute")
+def execute_action(action_id: str, user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return execute_simulated(action_id, user.organization_id, user.id, db)
 
 @app.get("/api/dashboard")
 def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db)):

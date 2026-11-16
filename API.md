@@ -17,10 +17,13 @@ All `/api/*` routes except the token endpoint require `Authorization: Bearer <ac
 | `DELETE /api/documents/{id}` | Org admin | Returns 202 after soft-deleting all versions and queuing vector/original-file cleanup. SQL chunks are removed immediately; the cleanup job retries failures. |
 | `GET /api/ingestion-jobs/{id}` | Authenticated | Tenant-scoped job status, progress, attempts and error. |
 | `POST /api/query` | Authenticated | JSON `{ "question": "...", "history": [] }`; returns answer, citations, retrieval evidence and workflow display steps. |
+| `POST /api/investigations` | Analyst, engineer, org admin | Combines a supported structured analytic result with ACL-filtered document evidence; returns deterministic source form without synthesized numeric claims. |
 | `POST /api/data/query` | Analyst, engineer, org admin | JSON `{ "question": "Show failure history for M-204" }`; supports tagged equipment failure history, compatible spare-part inventory and 90-day downtime by category. A legacy `sql` field is rejected; arbitrary SQL is never executed. |
-| `POST /api/actions` | Authenticated | JSON `{ "kind": "support_ticket|draft_email|report", "payload": {...} }`; creates a pending approval request only. |
+| `POST /api/actions` | Authenticated | JSON `{ "kind": "support_ticket|draft_email|report|work_order", "payload": {...} }`; creates a pending approval request. Work orders require equipment tag and description. |
 | `GET /api/actions` | Authenticated | Lists current organization's requests. |
 | `POST /api/actions/{action_id}/approve` | Org admin | Marks a pending request approved; does not execute an external system operation. |
+| `POST /api/actions/{action_id}/reject` | Org admin | Rejects a pending request. |
+| `POST /api/actions/{action_id}/execute` | Org admin | Runs the local simulated adapter for an approved action; work-order proposals create an internal work-order row. Idempotent on repeat calls; no external system is contacted. |
 | `GET /api/dashboard` | Authenticated | Basic document, query and pending-action counts for the current organization. |
 | `GET /health` | Public | Checks API process and PostgreSQL connection only. It does not check all dependencies. |
 

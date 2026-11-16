@@ -13,8 +13,8 @@ Status reflects code inspection on 2026-11-16. “Implemented” means a code pa
 | Grounded Gemini answer | Partial | Gemini call uses retrieved context; no citation verifier, contradiction policy, model timeout/cost tracking or tested abstention rate. |
 | SQL analytics | Partial | `/api/data/query` routes three supported question families to fixed parameterized SQLAlchemy queries with organization predicates; raw SQL is rejected. Unsupported requests do not execute. No AST-based NL-to-SQL, database read-only role, query timeout or broad analytics set. |
 | Industrial dataset | Partial | Explicit industrial schema and deterministic, provenance-marked synthetic generator exist. Seed and analytics tests cover M-204, compatible inventory and tenant scoping. Data review, import pipeline and production schema evolution remain. |
-| Query router / LangGraph | Planned | Current endpoint always routes to RAG. No agent graph or workflow checkpointing exists. |
-| Approval and external actions | Partial | Request and admin status approval exist; no reject, idempotency, execution adapter or confirmed external result. |
+| Query router / LangGraph | Partial | `/api/investigations` combines fixed structured analytics and ACL-filtered retrieval in a deterministic plan. No LangGraph, checkpointing, citation verifier for model synthesis or numeric-claim verifier. |
+| Approval and external actions | Partial | Approval/rejection plus a repeat-safe local simulated adapter exist; work-order proposals create internal rows. No live external connector, credential management or verified external result. |
 | Dashboard | Partial | One page covers docs, Q&A, evidence and action requests; no industrial workspaces or accessibility review. |
 | CI / tests | Partial | One CI workflow, unit tests and tenant API tests. Tenant API module remains skipped locally due missing PyJWT/pwdlib; no type check, security scan, Qdrant integration or load suite. |
 | Docker / Alembic | Partial | Compose includes one-shot migrations and separate API/worker. SQLite migration up/down and worker unit tests passed; Docker startup remains unverified. Compose has local-only static DB credentials. |
@@ -53,9 +53,13 @@ Define organization-scoped industrial relational schema and deterministic synthe
 - [x] Test deterministic/idempotent seeding, M-204 case records, compatible parts and tenant isolation using SQLite.
 - [ ] Add broader analytics and measured query plans; validate against PostgreSQL and operationally reviewed data before any AST-based NL-to-SQL work.
 
-### Phase 4 — investigations and actions
+### Phase 4 — investigations and actions (in progress)
 
 Implement deterministic multi-source investigation plans; add LangGraph only for workflows that benefit from conditional multi-hop steps. Add citation validation, numeric verification, work-order proposal/review/reject/execute states, idempotency and a simulated external adapter.
+
+- [x] Combine safe structured analytics and ACL-filtered document retrieval in a deterministic investigation response.
+- [x] Add work-order proposal validation, admin approval/rejection, simulated execution and idempotent repeat handling; persist execution result and audit transitions.
+- [ ] Add cross-source citation and numeric verification before any generated investigation synthesis; execute an external adapter only after integration, access controls and result validation are in place.
 
 ### Phase 5 — durable jobs and observability
 
@@ -67,4 +71,4 @@ Build reviewed benchmark data and reproducible retrieval/answer experiments. Set
 
 ## Current completion evidence
 
-Phase 1/2 verification: 12 passed, 1 skipped. After Phase 3: `python -m pytest -q` reports 13 passed, 1 skipped; the skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. SQLite Alembic upgraded through 0003, downgraded to 0002, and upgraded to 0003 again. `git diff --check` is clean. Ruff is not installed. PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No benchmark result or production-readiness claim is made.
+Verification: `python -m pytest -q` reports 15 passed, 1 skipped; the skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. Compilation succeeded. SQLite Alembic upgraded through 0004, downgraded to 0003, and upgraded to 0004 again. `git diff --check` is clean. Ruff is not installed. PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. Ruff is not installed. PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No benchmark result or production-readiness claim is made.

@@ -87,6 +87,8 @@ class ActionRequest(Base):
     kind: Mapped[str] = mapped_column(String(50))
     payload: Mapped[dict] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(30), default="pending_approval")
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True, unique=True)
+    execution_result: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 class Facility(Base):
