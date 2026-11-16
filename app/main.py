@@ -24,6 +24,7 @@ from app.models import Organization, User, Document, AuditEvent, ActionRequest, 
 from app.services.industrial_analytics import query_industrial
 from app.services.action_execution import approve_action, execute_simulated, reject_action as reject_action_service
 from app.core.telemetry import configure_api_telemetry
+from app.services.verification import enforce_verification
 from app.services.ingestion import ALLOWED
 from app.services.retrieval import search
 from app.services.answering import answer
@@ -339,10 +340,12 @@ async def query(body: Ask, user: User = Depends(current_user), db: Session = Dep
     evidence = await run_in_threadpool(search, db, user.organization_id, body.question,
                                        roles=(user.role,), user_id=user.id)
     result = await answer(body.question, evidence, body.history)
+    result, validation = enforce_verification(body.question, result, evidence)
     db.add(AuditEvent(id=str(uuid4()), organization_id=user.organization_id, actor_id=user.id,
         event_type="query.completed", details={"question": body.question[:500], "citations": len(result["citations"])}))
     db.commit()
-    return {**result, "retrieval": {"strategy": "hybrid_rrf", "results": evidence},
+    return {**result, "validation": validation,
+            "retrieval": {"strategy": "hybrid_rrf", "results": evidence},
             "workflow": [{"step": "route", "status": "completed", "detail": "Knowledge query routed to hybrid retrieval"},
                          {"step": "retrieve", "status": "completed", "detail": f"Found {len(evidence)} candidate chunks"},
                          {"step": "synthesize", "status": "completed"}]}

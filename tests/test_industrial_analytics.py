@@ -35,6 +35,11 @@ def test_seed_is_reproducible_and_analytics_are_tenant_scoped(monkeypatch):
         parts = query_industrial(db, org_id, "What spare parts inventory is compatible with M-204?")
         assert parts["intent"] == "parts_inventory"
         assert {row["part_number"] for row in parts["rows"]} >= {"BRG-6205", "COUP-204", "SEAL-204"}
+        mtbf = query_industrial(db, org_id, "Calculate mean time between failures for M-204")
+        assert mtbf["intent"] == "mtbf" and mtbf["rows"][0]["failure_count"] >= 6
+        frequency = query_industrial(db, org_id, "Which machines have the highest failure frequency?")
+        assert frequency["intent"] == "failure_frequency"
+        assert all(row["failure_count"] > 0 for row in frequency["rows"])
 
         other = Organization(id="other-org", name="Other tenant")
         db.add(other)
@@ -42,7 +47,7 @@ def test_seed_is_reproducible_and_analytics_are_tenant_scoped(monkeypatch):
         # Existing tenant's equipment and failure events cannot leak into another org's query.
         assert query_industrial(db, other.id, "Show failure history for M-204")["rows"] == []
         report = evaluate(db, org_id, Path(__file__).parents[1] / "evals" / "industrial_analytics.jsonl")
-        assert report["cases"] == 8
+        assert report["cases"] == 10
         assert report["intent_accuracy"] == 1
         assert report["required_value_pass_rate"] == 1
         db.close()

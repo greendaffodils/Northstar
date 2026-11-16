@@ -49,7 +49,8 @@ def query_industrial(db: Session, organization_id: str, question: str) -> dict:
                 "columns": list(data[0].keys()) if data else ["equipment_tag", "part_number", "part_name", "facility", "quantity", "reorder_level", "below_reorder"],
                 "rows": data, "calculations": [], "data_basis": "organization-scoped compatible parts and facility inventory"}
 
-    if tag and any(word in normalized.lower() for word in ("failure", "breakdown", "root cause", "downtime", "history")):
+    is_mtbf = any(word in normalized.lower() for word in ("mtbf", "between failures", "mean time between"))
+    if tag and not is_mtbf and any(word in normalized.lower() for word in ("failure", "breakdown", "root cause", "downtime", "history")):
         item = _equipment(db, organization_id, tag)
         if not item:
             data = []
@@ -67,6 +68,45 @@ def query_industrial(db: Session, organization_id: str, question: str) -> dict:
                 "columns": ["incident_code", "occurred_at", "failure_mode", "root_cause", "downtime_minutes", "severity"],
                 "rows": data, "calculations": [{"name": "window_days", "value": 90}],
                 "data_basis": "organization-scoped failure events; rolling 90-day window"}
+
+    if tag and is_mtbf:
+        item = _equipment(db, organization_id, tag)
+        if not item:
+            return {"intent": "mtbf", "answer": f"No equipment tagged {tag} was found.",
+                    "columns": ["equipment_tag", "failure_count", "operating_days", "mtbf_days"],
+                    "rows": [], "calculations": [], "data_basis": "organization-scoped equipment and failure events"}
+        now = datetime.now(timezone.utc)
+        failures = db.scalar(select(func.count(FailureEvent.id)).where(
+            FailureEvent.organization_id == organization_id, FailureEvent.equipment_id == item.id,
+            FailureEvent.occurred_at >= item.commissioned_at)) or 0
+        commissioned_at = item.commissioned_at
+        if commissioned_at.tzinfo is None:
+            commissioned_at = commissioned_at.replace(tzinfo=timezone.utc)
+        operating_days = max(0.0, (now - commissioned_at).total_seconds() / 86400)
+        mtbf = round(operating_days / failures, 2) if failures else None
+        row = {"equipment_tag": tag, "failure_count": failures,
+               "operating_days": round(operating_days, 2), "mtbf_days": mtbf}
+        return {"intent": "mtbf", "answer": f"Calculated MTBF for {tag} from commissioning date and recorded failures.",
+                "columns": list(row), "rows": [row],
+                "calculations": [{"name": "mtbf_days", "formula": "days_since_commissioning / recorded_failure_count",
+                                  "value": mtbf}],
+                "data_basis": "organization-scoped records; assumes equipment was operating continuously since commissioning"}
+
+    if any(word in normalized.lower() for word in ("highest failure", "failure frequency", "most failures", "high failure rate")):
+        since = datetime.now(timezone.utc) - timedelta(days=90)
+        rows = db.execute(select(Equipment.equipment_tag, Equipment.name, func.count(FailureEvent.id),
+                func.coalesce(func.sum(FailureEvent.downtime_minutes), 0))
+            .join(FailureEvent, (FailureEvent.equipment_id == Equipment.id) &
+                (FailureEvent.organization_id == organization_id) & (FailureEvent.occurred_at >= since))
+            .where(Equipment.organization_id == organization_id)
+            .group_by(Equipment.equipment_tag, Equipment.name)
+            .order_by(func.count(FailureEvent.id).desc(), Equipment.equipment_tag).limit(20)).all()
+        data = [{"equipment_tag": r[0], "equipment_name": r[1], "failure_count": r[2],
+                 "downtime_minutes": int(r[3])} for r in rows]
+        return {"intent": "failure_frequency", "answer": "Ranked equipment by recorded failures in the last 90 days.",
+                "columns": ["equipment_tag", "equipment_name", "failure_count", "downtime_minutes"],
+                "rows": data, "calculations": [{"name": "window_days", "value": 90}],
+                "data_basis": "organization-scoped failure events; counts are not exposure-adjusted rates"}
 
     if any(word in normalized.lower() for word in ("downtime", "lost time")):
         since = datetime.now(timezone.utc) - timedelta(days=90)

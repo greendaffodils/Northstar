@@ -4,5 +4,7 @@
 {"id":"parts-missing-tag","question":"Show compatible spare part inventory","expected_intent":"parts_inventory","required_row_values":[]}
 {"id":"downtime-category","question":"Compare downtime by equipment category","expected_intent":"downtime_by_category","required_row_values":[]}
 {"id":"downtime-loss","question":"How much lost time is there by category?","expected_intent":"downtime_by_category","required_row_values":[]}
+{"id":"mtbf-m204","question":"What is the mean time between failures for M-204?","expected_intent":"mtbf","required_row_values":[]}
+{"id":"frequency-ranking","question":"Which machines have the highest failure frequency?","expected_intent":"failure_frequency","required_row_values":[]}
 {"id":"unsupported-general","question":"What is the weather tomorrow?","expected_intent":"unsupported","required_row_values":[]}
 {"id":"unsupported-sql","question":"Select all users from the database","expected_intent":"unsupported","required_row_values":[]}

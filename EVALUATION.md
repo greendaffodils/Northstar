@@ -2,7 +2,7 @@
 
 ## Current evidence
 
-The repository includes an eight-case deterministic analytics routing/value regression set at `evals/industrial_analytics.jsonl`. Run it after seeding with `python -m app.evaluate_analytics --organization-id <ORG_ID>`. This smoke set checks supported intents, unsupported requests and a few stable synthetic values; it does not measure retrieval or generated answer quality. The latest recorded full suite before telemetry changes reported 15 passed and 1 skipped; rerun the suite for current status. The skipped tenant API tests require PyJWT and pwdlib, unavailable in the local environment. No retrieval benchmark, broad answer-quality dataset, load test or measured cost result exists yet.
+The repository includes a ten-case deterministic analytics routing/value regression set at `evals/industrial_analytics.jsonl`. Run it after seeding with `python -m app.evaluate_analytics --organization-id <ORG_ID>`. This smoke set checks supported intents, unsupported requests and a few stable synthetic values; it does not measure retrieval or generated answer quality. The current local suite reports 18 passed and 1 skipped. The skipped tenant API tests require PyJWT and pwdlib, unavailable in the local environment. No retrieval benchmark, broad answer-quality dataset, load test or measured cost result exists yet.
 
 ## Benchmark design
 
