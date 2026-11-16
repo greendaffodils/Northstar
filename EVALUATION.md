@@ -2,7 +2,7 @@
 
 ## Current evidence
 
-There is no retrieval benchmark, answer-quality dataset, measured latency/cost result or load test. The latest suite reports 12 passed and 1 skipped; executed checks cover chunking/extraction, upload validation, production-secret validation, persisted worker lifecycle, version filtering and document-role retrieval filtering. Tenant API adversarial tests are present but are skipped because PyJWT and pwdlib are not installed. No scores are reported here because no reproducible benchmark has been run.
+The repository includes an eight-case deterministic analytics routing/value regression set at `evals/industrial_analytics.jsonl`. Run it after seeding with `python -m app.evaluate_analytics --organization-id <ORG_ID>`. This smoke set checks supported intents, unsupported requests and a few stable synthetic values; it does not measure retrieval or generated answer quality. The latest recorded full suite before telemetry changes reported 15 passed and 1 skipped; rerun the suite for current status. The skipped tenant API tests require PyJWT and pwdlib, unavailable in the local environment. No retrieval benchmark, broad answer-quality dataset, load test or measured cost result exists yet.
 
 ## Benchmark design
 
@@ -16,7 +16,7 @@ For routing/agents, compare direct RAG, deterministic SQL/analysis, a simple mul
 
 ## Regression requirements
 
-Store benchmark JSONL and environment/config manifests under `experiments/`. CI should run a small deterministic retrieval suite on every change and a larger scheduled suite for model changes. Use explicit tolerances and fail on regressions in tenant isolation, citation validity and SQL policy. Keep model-generated output snapshots limited to deterministic/mock integration tests; quality evaluation should use a versioned run artifact rather than brittle exact strings.
+Store benchmark JSONL and environment/config manifests under `experiments/`. Expand the current smoke set into the manually reviewed benchmark described above. CI should run deterministic analytics and retrieval suites on every change and a larger scheduled suite for model changes. Use explicit tolerances and fail on regressions in tenant isolation, citation validity and SQL policy. Keep model-generated output snapshots limited to deterministic/mock integration tests; quality evaluation should use a versioned run artifact rather than brittle exact strings.
 
 ## Metrics definitions
 

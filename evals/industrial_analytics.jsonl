@@ -1,0 +1,8 @@
+{"id":"failure-m204","question":"Show failure history for M-204","expected_intent":"equipment_failure_history","required_row_values":["INC-M204-001"]}
+{"id":"root-cause-m204","question":"What are the root causes of M-204 breakdowns?","expected_intent":"equipment_failure_history","required_row_values":["Dust-contaminated grease and elevated vibration"]}
+{"id":"parts-m204","question":"Which spare parts are in stock for M-204?","expected_intent":"parts_inventory","required_row_values":["BRG-6205","COUP-204","SEAL-204"]}
+{"id":"parts-missing-tag","question":"Show compatible spare part inventory","expected_intent":"parts_inventory","required_row_values":[]}
+{"id":"downtime-category","question":"Compare downtime by equipment category","expected_intent":"downtime_by_category","required_row_values":[]}
+{"id":"downtime-loss","question":"How much lost time is there by category?","expected_intent":"downtime_by_category","required_row_values":[]}
+{"id":"unsupported-general","question":"What is the weather tomorrow?","expected_intent":"unsupported","required_row_values":[]}
+{"id":"unsupported-sql","question":"Select all users from the database","expected_intent":"unsupported","required_row_values":[]}

@@ -1,6 +1,9 @@
 import hashlib
+import json
 import logging
 import math
+import re
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +23,7 @@ from app.core.security import hash_password
 from app.models import Organization, User, Document, AuditEvent, ActionRequest, IngestionJob, Chunk
 from app.services.industrial_analytics import query_industrial
 from app.services.action_execution import approve_action, execute_simulated, reject_action as reject_action_service
+from app.core.telemetry import configure_api_telemetry
 from app.services.ingestion import ALLOWED
 from app.services.retrieval import search
 from app.services.answering import answer
@@ -49,13 +53,21 @@ async def lifespan(app):
     yield
 
 app = FastAPI(title="Enterprise Knowledge & Action API", version="0.1.0", lifespan=lifespan)
+configure_api_telemetry(app)
 
 @app.middleware("http")
 async def request_context(request: Request, call_next):
-    rid = request.headers.get("x-request-id") or str(uuid4())
+    supplied_id = request.headers.get("x-request-id", "")
+    rid = supplied_id if len(supplied_id) <= 128 and re.fullmatch(r"[A-Za-z0-9._-]+", supplied_id) else str(uuid4())
     request.state.request_id = rid
+    started = time.perf_counter()
     response = await call_next(request)
     response.headers["X-Request-ID"] = rid
+    route = request.scope.get("route")
+    log.info(json.dumps({"event": "http.request", "request_id": rid,
+        "method": request.method, "route": getattr(route, "path", "unmatched"),
+        "status_code": response.status_code,
+        "duration_ms": round((time.perf_counter() - started) * 1000, 2)}))
     return response
 
 @app.exception_handler(Exception)
@@ -433,3 +445,16 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
             "indexed_documents": count(Document, Document.organization_id == org, Document.status == "ready"),
             "pending_actions": count(ActionRequest, ActionRequest.organization_id == org, ActionRequest.status == "pending_approval"),
             "queries": count(AuditEvent, AuditEvent.organization_id == org, AuditEvent.event_type == "query.completed")}
+
+@app.get("/api/admin/ingestion/summary")
+def ingestion_summary(user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    statuses = db.execute(select(IngestionJob.status, func.count(IngestionJob.id))
+        .where(IngestionJob.organization_id == user.organization_id)
+        .group_by(IngestionJob.status)).all()
+    queued_at = db.scalar(select(func.min(IngestionJob.created_at)).where(
+        IngestionJob.organization_id == user.organization_id, IngestionJob.status == "queued"))
+    oldest_age = max(0, int((datetime.now(timezone.utc) - queued_at).total_seconds())) if queued_at else None
+    return {"jobs_by_status": {status: count for status, count in statuses},
+            "dead_letter_count": dict(statuses).get("failed", 0),
+            "oldest_queued_age_seconds": oldest_age,
+            "scope": "current organization"}

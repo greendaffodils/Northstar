@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -7,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.db import Base
 from app.models import Equipment, FailureEvent, Organization
 from app import seed_demo
+from app.evaluate_analytics import evaluate
 from app.services.industrial_analytics import query_industrial
 
 
@@ -39,6 +41,10 @@ def test_seed_is_reproducible_and_analytics_are_tenant_scoped(monkeypatch):
         db.flush()
         # Existing tenant's equipment and failure events cannot leak into another org's query.
         assert query_industrial(db, other.id, "Show failure history for M-204")["rows"] == []
+        report = evaluate(db, org_id, Path(__file__).parents[1] / "evals" / "industrial_analytics.jsonl")
+        assert report["cases"] == 8
+        assert report["intent_accuracy"] == 1
+        assert report["required_value_pass_rate"] == 1
         db.close()
     finally:
         Base.metadata.drop_all(engine)

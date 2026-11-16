@@ -25,6 +25,7 @@ All `/api/*` routes except the token endpoint require `Authorization: Bearer <ac
 | `POST /api/actions/{action_id}/reject` | Org admin | Rejects a pending request. |
 | `POST /api/actions/{action_id}/execute` | Org admin | Runs the local simulated adapter for an approved action; work-order proposals create an internal work-order row. Idempotent on repeat calls; no external system is contacted. |
 | `GET /api/dashboard` | Authenticated | Basic document, query and pending-action counts for the current organization. |
+| `GET /api/admin/ingestion/summary` | Org admin | Tenant-scoped job counts, terminal failed (dead-letter) count and oldest queued-job age. |
 | `GET /health` | Public | Checks API process and PostgreSQL connection only. It does not check all dependencies. |
 
 Pagination, a stable versioned response envelope, cancellation endpoint, richer status codes and conversation endpoints are future API work. Do not infer execution success from `approved` action status.

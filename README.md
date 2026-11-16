@@ -30,6 +30,9 @@ After migrations, seed a clean demo organization with `python -m app.seed_demo -
 - Action request review queue with approval, rejection and a repeat-safe simulated execution adapter. Approved work-order proposals can create internal work-order records; no external system is contacted.
 - Web dashboard for uploads, document status, questions, evidence snippets, workflow steps, action requests and basic counts.
 - Explicit Alembic migrations, Compose API/migration/worker/database/vector services, DB-aware health check, CI workflow and unit/tenant test sets.
+- Optional OpenTelemetry FastAPI tracing over OTLP, request timing logs with route templates and request IDs, worker job duration/status events, and an admin-only tenant queue summary. Configure `OTEL_EXPORTER_OTLP_ENDPOINT` to export traces; without it, traces are not exported.
+
+Run the deterministic analytics routing/evidence smoke evaluation against a seeded organization with `python -m app.evaluate_analytics --organization-id <ORG_ID>`. The current eight-case set is a small regression check, not the planned broad benchmark.
 
 ## API outline
 
@@ -51,6 +54,7 @@ After migrations, seed a clean demo organization with `python -m app.seed_demo -
 | `POST /api/actions/{id}/approve|reject|execute` | Admin review and simulated idempotent adapter |
 | `POST /api/admin/users` | Add a same-organization account |
 | `GET /api/dashboard` | Tenant-scoped counts |
+| `GET /api/admin/ingestion/summary` | Admin-only tenant queue status and failed-job counts |
 
 ## Architecture
 

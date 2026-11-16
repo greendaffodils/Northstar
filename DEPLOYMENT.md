@@ -14,7 +14,7 @@ For a standalone local migration run after installing the project, use `alembic 
 
 ## Current deployment state
 
-Only local Compose configuration exists. No GCP resources, Terraform, deployed URL, Cloud SQL instance, Cloud Storage bucket, Pub/Sub topic, Cloud Run service or billed-cost evidence exists. The local PostgreSQL polling worker and local filesystem storage are not a substitute for managed cloud queues and object storage.
+Only local Compose configuration exists. No GCP resources, Terraform, deployed URL, Cloud SQL instance, Cloud Storage bucket, Pub/Sub topic, Cloud Run service or billed-cost evidence exists. The local PostgreSQL polling worker and local filesystem storage are not a substitute for managed cloud queues and object storage. Optional OpenTelemetry traces can be sent to an OTLP HTTP collector by setting `OTEL_EXPORTER_OTLP_ENDPOINT`; this workspace has not verified collector export.
 
 ## GCP target topology (planned)
 

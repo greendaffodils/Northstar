@@ -18,7 +18,7 @@ Status reflects code inspection on 2026-11-16. “Implemented” means a code pa
 | Dashboard | Partial | One page covers docs, Q&A, evidence and action requests; no industrial workspaces or accessibility review. |
 | CI / tests | Partial | One CI workflow, unit tests and tenant API tests. Tenant API module remains skipped locally due missing PyJWT/pwdlib; no type check, security scan, Qdrant integration or load suite. |
 | Docker / Alembic | Partial | Compose includes one-shot migrations and separate API/worker. SQLite migration up/down and worker unit tests passed; Docker startup remains unverified. Compose has local-only static DB credentials. |
-| GCP / observability / evaluation | Planned | No Terraform, cloud deployment, OTel, load test, benchmark corpus or real measurement. |
+| GCP / observability / evaluation | Partial | Optional OTLP tracing, request/worker timing logs, admin tenant queue summary and an eight-case deterministic analytics smoke evaluation exist. No Terraform/cloud deployment, collector verification, broad reviewed benchmark corpus, retrieval/answer-quality measurements or load test. |
 
 ## Phase gates
 
@@ -61,14 +61,22 @@ Implement deterministic multi-source investigation plans; add LangGraph only for
 - [x] Add work-order proposal validation, admin approval/rejection, simulated execution and idempotent repeat handling; persist execution result and audit transitions.
 - [ ] Add cross-source citation and numeric verification before any generated investigation synthesis; execute an external adapter only after integration, access controls and result validation are in place.
 
-### Phase 5 — durable jobs and observability
+### Phase 5 — durable jobs and observability (in progress)
 
 Use a durable local/cloud queue, idempotent worker lifecycle, retry/dead-letter states and recovery tests. Add OpenTelemetry spans, redacted structured logs and baseline latency/cost metrics.
+
+- [x] Expose tenant-scoped queued/running/retrying/failed job counts and oldest queued age to organization admins; terminal `failed` jobs are reported as dead letters.
+- [x] Add optional FastAPI OTLP tracing, request duration/status logs and worker job spans/duration logs without logging request bodies or credentials; tracing exporter is not yet exercised with a collector.
+- [ ] Verify collector export and PostgreSQL worker claiming under concurrency; add queue reconciliation, cancellation and alert thresholds.
 
 ### Phase 6 — evaluation, cloud and product polish
 
 Build reviewed benchmark data and reproducible retrieval/answer experiments. Set up GCP infrastructure, secrets, private networking, deployment migration job and dashboards. Expand UI around actual industrial records and validated workflows.
 
+- [x] Add a versioned eight-case deterministic analytics routing/value regression set and a runnable JSON evaluation report.
+- [ ] Build the manually reviewed benchmark corpus and retrieval/answer evaluation requested in the original plan; current smoke set is not representative enough for quality claims.
+- [ ] Add and validate GCP infrastructure, deployment configuration, UI industrial workspaces and accessibility review.
+
 ## Current completion evidence
 
-Verification: `python -m pytest -q` reports 15 passed, 1 skipped; the skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. Compilation succeeded. SQLite Alembic upgraded through 0004, downgraded to 0003, and upgraded to 0004 again. `git diff --check` is clean. Ruff is not installed. PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. Ruff is not installed. PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No benchmark result or production-readiness claim is made.
+Verification: `python -m compileall -q app migrations tests` succeeded; `python -m pytest -q` reports 15 passed, 1 skipped. The skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. The eight-case analytics evaluation is also asserted by the seeded SQLite test. SQLite Alembic upgraded through 0004 and downgraded/upgraded through 0004 successfully. Ruff is not installed. OTLP collector export, PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No broad benchmark result or production-readiness claim is made.

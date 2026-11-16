@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     max_upload_mb: int = 25
     bootstrap_email: str = "admin@example.com"
     bootstrap_password: str = "change-this-password"
+    otel_service_name: str = "northstar-api"
+    otel_exporter_otlp_endpoint: str = ""
 
     @model_validator(mode="after")
     def validate_production_secrets(self):
