@@ -11,8 +11,8 @@ Status reflects code inspection on 2026-11-16. “Implemented” means a code pa
 | Durable ingestion/version/deletion | Partial | Same-name versions, soft delete, manual reindex, persisted jobs, bounded retry/backoff, deletion cleanup job and local polling worker exist. Cloud queue, reconciliation and user-triggered cancellation remain. |
 | Dense + BM25 + RRF | Partial | Current/non-deleted, equipment and document ACL filtering, org-scoped Qdrant filter, SQL intersection and optional cross-encoder reranking exist; no vector integration test, historical-version query mode or relevance benchmark. |
 | Grounded Gemini answer | Partial | Gemini call uses retrieved context; no citation verifier, contradiction policy, model timeout/cost tracking or tested abstention rate. |
-| SQL analytics | Planned / disabled | The unsafe regex SQL executor has been removed. `/api/data/query` returns 503 pending industrial schema, AST parser, DB role and tenant enforcement. |
-| Industrial dataset | Planned | No equipment, incidents, work orders, inventory or reproducible seed data exists. |
+| SQL analytics | Partial | `/api/data/query` routes three supported question families to fixed parameterized SQLAlchemy queries with organization predicates; raw SQL is rejected. Unsupported requests do not execute. No AST-based NL-to-SQL, database read-only role, query timeout or broad analytics set. |
+| Industrial dataset | Partial | Explicit industrial schema and deterministic, provenance-marked synthetic generator exist. Seed and analytics tests cover M-204, compatible inventory and tenant scoping. Data review, import pipeline and production schema evolution remain. |
 | Query router / LangGraph | Planned | Current endpoint always routes to RAG. No agent graph or workflow checkpointing exists. |
 | Approval and external actions | Partial | Request and admin status approval exist; no reject, idempotency, execution adapter or confirmed external result. |
 | Dashboard | Partial | One page covers docs, Q&A, evidence and action requests; no industrial workspaces or accessibility review. |
@@ -43,9 +43,15 @@ Status reflects code inspection on 2026-11-16. “Implemented” means a code pa
 - [x] Add role/user document allowlists to list, version, reindex and retrieval paths; filter Qdrant by SQL-derived accessible document IDs.
 - [ ] Add vector-store integration tests and reconciliation; finish tenant API tests with runtime dependencies.
 
-### Phase 3 — industrial data and safe analytics
+### Phase 3 — industrial data and safe analytics (in progress)
 
 Define organization-scoped industrial relational schema and deterministic synthetic-data generator. Build parameterized analytical operations first. Add an AST-based NL-to-SQL path only after table/column allowlists, tenant predicates, timeout and a dedicated read-only database role are tested.
+
+- [x] Add organization-scoped facility, equipment, failure, maintenance, work order, spare part, inventory, metric and safety incident tables plus migration 0003.
+- [x] Add deterministic synthetic records with manifest/provenance, stable IDs and duplicate/mixed-data safeguards.
+- [x] Add fixed parameterized analytics for tagged equipment failure history, compatible parts inventory and rolling 90-day downtime by category; reject raw SQL and audit supported requests.
+- [x] Test deterministic/idempotent seeding, M-204 case records, compatible parts and tenant isolation using SQLite.
+- [ ] Add broader analytics and measured query plans; validate against PostgreSQL and operationally reviewed data before any AST-based NL-to-SQL work.
 
 ### Phase 4 — investigations and actions
 
@@ -61,4 +67,4 @@ Build reviewed benchmark data and reproducible retrieval/answer experiments. Set
 
 ## Current completion evidence
 
-Phase 1 verification: compilation succeeded; the latest Phase 2 suite reported 12 passed, 1 skipped. The skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. Ruff could not run because it is not installed. SQLite migrations upgraded and downgraded successfully. Docker startup, Postgres/Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No benchmark result or production-readiness claim is made.
+Phase 1/2 verification: 12 passed, 1 skipped. After Phase 3: `python -m pytest -q` reports 13 passed, 1 skipped; the skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. SQLite Alembic upgraded through 0003, downgraded to 0002, and upgraded to 0003 again. `git diff --check` is clean. Ruff is not installed. PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No benchmark result or production-readiness claim is made.

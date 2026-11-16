@@ -17,6 +17,7 @@ from app.core.db import SessionLocal, get_db
 from app.core.security import current_user, require_admin, verify_password, create_token
 from app.core.security import hash_password
 from app.models import Organization, User, Document, AuditEvent, ActionRequest, IngestionJob, Chunk
+from app.services.industrial_analytics import query_industrial
 from app.services.ingestion import ALLOWED
 from app.services.retrieval import search
 from app.services.answering import answer
@@ -332,14 +333,22 @@ async def query(body: Ask, user: User = Depends(current_user), db: Session = Dep
                          {"step": "retrieve", "status": "completed", "detail": f"Found {len(evidence)} candidate chunks"},
                          {"step": "synthesize", "status": "completed"}]}
 
-class SqlRequest(BaseModel):
-    sql: str = Field(min_length=8, max_length=4000)
+class DataQuery(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    sql: str | None = None
 
-@app.post("/api/data/query", status_code=503)
-def data_query(body: SqlRequest, user: User = Depends(current_user)):
-    # The former regex-only SQL executor had no tenant-aware industrial schema or DB-level
-    # read-only role. Keep the route discoverable, but do not execute user-supplied SQL.
-    raise HTTPException(503, "Structured data queries are temporarily unavailable pending safe schema-aware execution")
+@app.post("/api/data/query")
+def data_query(body: DataQuery, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if user.role not in {"admin", "owner", "engineer", "analyst"}:
+        raise HTTPException(403, "Industrial analytics requires analyst, engineer, or administrator access")
+    if body.sql is not None:
+        raise HTTPException(422, "Raw SQL is not accepted; send a natural-language question in 'question'")
+    result = query_industrial(db, user.organization_id, body.question)
+    db.add(AuditEvent(id=str(uuid4()), organization_id=user.organization_id, actor_id=user.id,
+        event_type="industrial.analytics_queried", details={"intent": result["intent"],
+        "question": body.question[:500], "row_count": len(result["rows"])}))
+    db.commit()
+    return result
 
 class Action(BaseModel):
     kind: str = Field(pattern="^(support_ticket|draft_email|report)$")

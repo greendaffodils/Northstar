@@ -1,6 +1,6 @@
 # Northstar: Enterprise Knowledge & Action
 
-A portfolio starter for a tenant-aware internal knowledge assistant, now positioned for industrial maintenance investigations. Current code supports basic document processing, hybrid retrieval, Gemini synthesis, audit trails and approval requests. Client-supplied SQL execution is intentionally disabled pending a tenant-safe schema-aware implementation. It is not represented as a completed production deployment.
+A portfolio starter for a tenant-aware internal knowledge assistant, now positioned for industrial maintenance investigations. Current code supports document processing, hybrid retrieval, Gemini synthesis, audit trails, approval requests, synthetic industrial records and a small set of fixed tenant-scoped analytics. It does not execute client-supplied SQL and is not represented as a completed production deployment.
 
 ## Run locally
 
@@ -16,13 +16,16 @@ The API and UI are at `http://localhost:8000`; interactive API docs are at `/doc
 
 For a Python-only run, create a virtual environment, install `pip install -e '.[dev]'`, set `DATABASE_URL=sqlite:///./enterprise_ai.db` and `QDRANT_URL=http://localhost:6333`, run `alembic upgrade head`, then start both `uvicorn app.main:app --reload` and `python -m app.worker` from this directory. On first use, Sentence Transformers downloads the configured embedding model. Ingestion requires Qdrant and that model to be reachable.
 
+After migrations, seed a clean demo organization with `python -m app.seed_demo --as-of 2026-11-16 --seed 20261116`. The generator records its provenance and is idempotent per organization and dataset. It refuses to mix demo data into an organization that already contains equipment records.
+
 ## Included flows
 
 - Login with signed access tokens, password hashing, roles, organization-scoped endpoints, same-organization admin user creation and document role/user allowlists.
 - PDF, DOCX, CSV and TXT uploads; content hashing; immutable same-name versions; soft deletion; manual reindex; persisted ingestion jobs with progress, bounded retry/backoff and stale-worker recovery; metadata extraction and overlap chunking.
 - Sentence Transformer vectors in Qdrant, BM25 lexical ranks and reciprocal-rank fusion, optional CrossEncoder reranking, and equipment-ID filtering. Qdrant filters by organization; candidates are intersected with current, non-deleted tenant chunks in SQL.
 - Gemini synthesis constrained to retrieved snippets, visible source markers, abstention when there are no hits, and conversation history supplied as context only.
-- Structured data analytics are not available yet. `POST /api/data/query` returns 503; the prior regex-only SQL executor was removed because it lacked a real schema, tenant enforcement and database-level least privilege.
+- Industrial relational schema for facilities, equipment, failures, maintenance, work orders, spare parts, inventory, operating metrics and safety incidents. `python -m app.seed_demo` generates deterministic, clearly synthetic records (including M-204 case data); generation refuses to mix into an organization that already has equipment data.
+- `POST /api/data/query` routes supported natural-language requests to fixed parameterized analytics for tagged-equipment failure history, compatible spare-part stock and 90-day downtime by category. Raw SQL remains rejected; unsupported requests do not execute a query.
 - Action request review queue with role-gated approval and audit events. Approval only changes request status; no external operation executes.
 - Web dashboard for uploads, document status, questions, evidence snippets, workflow steps, action requests and basic counts.
 - Explicit Alembic migrations, Compose API/migration/worker/database/vector services, DB-aware health check, CI workflow and unit/tenant test sets.
@@ -41,7 +44,7 @@ For a Python-only run, create a virtual environment, install `pip install -e '.[
 | `DELETE /api/documents/{id}` | Admin soft-delete a document family and remove indexed content |
 | `GET /api/ingestion-jobs/{id}` | Read tenant-scoped job status and progress |
 | `POST /api/query` | Hybrid evidence retrieval and answer synthesis |
-| `POST /api/data/query` | Reserved; returns 503 until safe industrial analytics are implemented |
+| `POST /api/data/query` | Fixed tenant-scoped analytics; body `{ "question": "Show failure history for M-204" }`; raw `sql` is rejected |
 | `POST/GET /api/actions` | Request and list approval-gated actions |
 | `POST /api/actions/{id}/approve` | Admin approval record |
 | `POST /api/admin/users` | Add a same-organization account |
