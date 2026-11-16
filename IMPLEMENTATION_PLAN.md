@@ -9,7 +9,7 @@ Status reflects code inspection on 2026-11-16. “Implemented” means a code pa
 | Organization data filtering | Partial | Core endpoints and retrieval filter by organization; document reads add role/user allowlists. No executed adversarial API suite, RLS, or complete tenant audit. |
 | PDF/DOCX/CSV/TXT extraction | Partial | Basic format checks plus page/heading/table/paragraph metadata and equipment-ID enrichment exist. Parser resource limits and author/effective-date extraction remain. |
 | Durable ingestion/version/deletion | Partial | Same-name versions, soft delete, manual reindex, persisted jobs, bounded retry/backoff, deletion cleanup job and local polling worker exist. Cloud queue, reconciliation and user-triggered cancellation remain. |
-| Dense + BM25 + RRF | Partial | Current/non-deleted, equipment and document ACL filtering, org-scoped Qdrant filter, SQL intersection and optional cross-encoder reranking exist; no vector integration test, historical-version query mode or relevance benchmark. |
+| Dense + BM25 + RRF | Partial | Current/non-deleted, equipment and document ACL filtering, org-scoped Qdrant filter, SQL intersection and optional cross-encoder reranking exist; a dry-run/apply vector reconciliation CLI is available. No executed Qdrant integration test, historical-version query mode or relevance benchmark. |
 | Grounded Gemini answer | Partial | Gemini call uses retrieved context; numeric digit values and citation indices are checked against retrieved passages. No semantic citation-support or contradiction verifier, model timeout/cost tracking or tested abstention rate. |
 | SQL analytics | Partial | `/api/data/query` routes three supported question families to fixed parameterized SQLAlchemy queries with organization predicates; raw SQL is rejected. Unsupported requests do not execute. No AST-based NL-to-SQL, database read-only role, query timeout or broad analytics set. |
 | Industrial dataset | Partial | Explicit industrial schema and deterministic, provenance-marked synthetic generator exist. Seed and analytics tests cover M-204, compatible inventory and tenant scoping. Data review, import pipeline and production schema evolution remain. |
@@ -41,7 +41,8 @@ Status reflects code inspection on 2026-11-16. “Implemented” means a code pa
 - [x] Add deletion cleanup jobs with persisted retry state; SQL visibility is removed before vector cleanup completes.
 - [x] Add page/heading/table/paragraph chunk metadata and equipment-ID enrichment.
 - [x] Add role/user document allowlists to list, version, reindex and retrieval paths; filter Qdrant by SQL-derived accessible document IDs.
-- [ ] Add vector-store integration tests and reconciliation; finish tenant API tests with runtime dependencies.
+- [x] Add tenant-scoped vector reconciliation with read-only preview and opt-in missing-vector repair/orphan deletion.
+- [ ] Add executed Qdrant integration tests; finish tenant API tests with runtime dependencies.
 
 ### Phase 3 — industrial data and safe analytics (in progress)
 
@@ -80,4 +81,4 @@ Build reviewed benchmark data and reproducible retrieval/answer experiments. Set
 
 ## Current completion evidence
 
-Verification: `python -m compileall -q app migrations tests` succeeded; `python -m pytest -q` reports 18 passed, 1 skipped after the latest changes. The skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. The ten-case analytics evaluation is asserted by the seeded SQLite test. SQLite Alembic upgraded through 0004 and downgraded/upgraded through 0004 successfully. Ruff is not installed. OTLP collector export, PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No broad benchmark result or production-readiness claim is made.
+Verification: `python -m compileall -q app migrations tests` succeeded; `python -m pytest -q` reports 19 passed, 1 skipped after the latest changes. The skipped module contains API tenant adversarial tests because PyJWT/pwdlib are absent here. The ten-case analytics evaluation is asserted by the seeded SQLite test. SQLite Alembic upgraded through 0004 and downgraded/upgraded through 0004 successfully. Ruff is not installed. OTLP collector export, PostgreSQL/Docker startup, Qdrant integration, cloud deployment and a realistic end-to-end user journey remain unverified. No broad benchmark result or production-readiness claim is made.

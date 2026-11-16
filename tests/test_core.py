@@ -1,6 +1,7 @@
 import pytest
 from app.services.ingestion import split_chunks, extract, extract_segments, validate_content
 from app.core.config import Settings
+from app.services.vector_reconciliation import classify_drift
 
 def test_text_chunking_keeps_overlap_and_content():
     text = "Sentence one. " * 180
@@ -39,3 +40,8 @@ def test_csv_extraction_keeps_header_with_each_table_block():
     assert segments[0][0].splitlines()[0] == "id | value"
     assert segments[1][0].splitlines()[0] == "id | value"
     assert segments[1][1]["row_start"] == 22
+
+def test_vector_reconciliation_classifies_missing_and_orphan_points():
+    missing, orphaned = classify_drift({"a", "b", "c"}, {"b", "c", "stale"})
+    assert missing == {"a"}
+    assert orphaned == {"stale"}

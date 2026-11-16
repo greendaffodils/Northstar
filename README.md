@@ -16,6 +16,8 @@ The API and UI are at `http://localhost:8000`; interactive API docs are at `/doc
 
 For a Python-only run, create a virtual environment, install `pip install -e '.[dev]'`, set `DATABASE_URL=sqlite:///./enterprise_ai.db` and `QDRANT_URL=http://localhost:6333`, run `alembic upgrade head`, then start both `uvicorn app.main:app --reload` and `python -m app.worker` from this directory. On first use, Sentence Transformers downloads the configured embedding model. Ingestion requires Qdrant and that model to be reachable.
 
+Inspect per-tenant SQL/Qdrant drift with `python -m app.reconcile_vectors --organization-id <ORG_ID>`. The command is read-only by default; add `--apply` to re-embed missing current chunks and delete orphaned points for that tenant.
+
 After migrations, seed a clean demo organization with `python -m app.seed_demo --as-of 2026-11-16 --seed 20261116`. The generator records its provenance and is idempotent per organization and dataset. It refuses to mix demo data into an organization that already contains equipment records.
 
 ## Included flows
