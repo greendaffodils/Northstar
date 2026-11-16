@@ -32,10 +32,13 @@ def tenant_client(monkeypatch):
                    password_hash="unused", role="admin")
     db.add_all([org_a, org_b, user_a, user_b, admin_a])
     db.add_all([
-        Document(id="doc-a", organization_id="org-a", uploaded_by="user-a", filename="a.txt",
-                 content_hash="a" * 64, status="ready"),
-        Document(id="doc-b", organization_id="org-b", uploaded_by="user-b", filename="b.txt",
-                 content_hash="b" * 64, status="ready"),
+        Document(id="doc-a", organization_id="org-a", family_id="family-a", uploaded_by="user-a",
+                 filename="a.txt", content_hash="a" * 64, storage_path="a.txt", status="ready"),
+        Document(id="doc-b", organization_id="org-b", family_id="family-b", uploaded_by="user-b",
+                 filename="b.txt", content_hash="b" * 64, storage_path="b.txt", status="ready"),
+        Document(id="doc-c", organization_id="org-a", family_id="family-c", uploaded_by="admin-a",
+                 filename="restricted.txt", content_hash="c" * 64, storage_path="c.txt",
+                 status="ready", allowed_roles=["engineer"]),
         ActionRequest(id="action-a", organization_id="org-a", requested_by="user-a",
                       kind="report", payload={"summary": "A"}, status="pending_approval"),
         ActionRequest(id="action-b", organization_id="org-b", requested_by="user-b",
@@ -87,8 +90,10 @@ def test_query_ignores_client_supplied_organization(tenant_client, monkeypatch):
     client, token, *_ = tenant_client
     seen = {}
 
-    def fake_search(_db, org_id, _question):
+    def fake_search(_db, org_id, _question, **kwargs):
         seen["org_id"] = org_id
+        seen["roles"] = kwargs.get("roles")
+        seen["user_id"] = kwargs.get("user_id")
         return []
 
     async def fake_answer(_question, evidence, _history):
@@ -101,6 +106,16 @@ def test_query_ignores_client_supplied_organization(tenant_client, monkeypatch):
 
     assert response.status_code == 200
     assert seen["org_id"] == "org-a"
+    assert seen["roles"] == ("member",)
+    assert seen["user_id"] == "user-a"
+
+
+def test_cross_role_document_is_hidden_from_document_list(tenant_client):
+    client, token, *_ = tenant_client
+    response = client.get("/api/documents?include_history=true",
+                          headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert {row["id"] for row in response.json()} == {"doc-a"}
 
 
 def test_token_cannot_claim_a_different_database_organization(tenant_client):

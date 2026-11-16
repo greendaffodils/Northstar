@@ -9,7 +9,7 @@ Treat uploaded manuals, work reports, query text and action payloads as confiden
 - Password hashes use `pwdlib`'s recommended Argon2 configuration.
 - JWTs are signed with HS256, expire, and are checked against the active user row and current organization membership. The database role, rather than the role claim, gates admin routes.
 - Production settings reject the known development JWT secret and bootstrap password.
-- Most data routes filter by the authenticated organization's ID. Qdrant applies an organization filter; SQL candidate lookup joins documents and includes only ready documents for that same organization.
+- Most data routes filter by the authenticated organization's ID. Document list/reindex/version access also honors role/user allowlists. Qdrant filters by organization, current version and only SQL-derived document IDs the user can read.
 - Upload length is bounded and extension/content checks cover common format mismatches. Stored paths use generated IDs, not the supplied filename.
 - Action approval is admin-only and action IDs are looked up within the caller's organization. Approval does not claim execution.
 - Client-provided SQL no longer reaches a database. The endpoint responds with 503 until a safe analytics implementation exists.
@@ -18,7 +18,7 @@ Treat uploaded manuals, work reports, query text and action payloads as confiden
 ## Known security gaps (do not deploy as a production service yet)
 
 1. No SSO, refresh/revocation, login throttling, password reset, invitation flow, or production first-admin provisioning.
-2. No PostgreSQL RLS, document ACLs, tenant-scoped foreign keys on all records, or cross-tenant adversarial integration suite.
+2. No PostgreSQL RLS or tenant-scoped foreign keys on all records. Document ACLs are application-enforced and still need executed adversarial integration coverage.
 3. No separate read-only database role because the analytics schema and safe SQL path are not implemented.
 4. File type checks are basic. PDF parser resource limits, archive expansion limits, malware scanning, encrypted-file policy and external storage access controls are absent.
 5. No durable job isolation, cancellation or worker-level authorization context. Upload originals currently use local filesystem storage.

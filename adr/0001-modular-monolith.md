@@ -13,4 +13,4 @@ Keep FastAPI as a modular monolith. Separate domain and infrastructure logic int
 
 ## Consequences
 
-The local demo is straightforward to run and trace. In-process `BackgroundTasks` remain a known limitation and must be replaced before multi-replica production deployment. Module boundaries need improvement as routes grow.
+The local demo is straightforward to run and trace. A PostgreSQL polling worker provides durable local jobs, but a managed queue and worker lease/heartbeat are still required before multi-replica production deployment. Module boundaries need improvement as routes grow.

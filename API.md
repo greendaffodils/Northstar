@@ -8,9 +8,14 @@ All `/api/*` routes except the token endpoint require `Authorization: Bearer <ac
 |---|---|---|
 | `POST /api/auth/token` | Public | OAuth2 form fields `username` (email) and `password`; returns `access_token`, `token_type`, `role`. |
 | `GET /api/me` | Authenticated | Current account and organization IDs. |
-| `POST /api/admin/users` | Org admin | JSON `{ "email": "...", "password": "at-least-12-chars", "role": "member" }`; creates an account inside the admin's organization. |
-| `POST /api/documents` | Authenticated | Multipart `file`; supported filename extensions PDF/DOCX/CSV/TXT; configured byte limit; returns 202 with ID/status. Processing is in-process and not durable. |
-| `GET /api/documents` | Authenticated | Current organization's documents. No pagination yet. |
+| `POST /api/admin/users` | Org admin | JSON `{ "email": "...", "password": "at-least-12-chars", "role": "member|engineer|analyst|reader|admin" }`; creates an account inside the admin's organization. |
+| `POST /api/documents` | Authenticated | Multipart `file` plus optional `access_roles` (`inherit`, `*`, or comma-separated roles); returns 202 with document and persisted job IDs. Same-name changed uploads create a new version and inherit permissions by default. |
+| `GET /api/documents?include_history=false` | Authenticated | Current organization's non-deleted documents; set `include_history=true` to include superseded versions. No pagination yet. |
+| `GET /api/documents/{id}/versions` | Authenticated | Lists versions for a family after checking tenant ownership. |
+| `PUT /api/documents/{id}/access` | Org admin | JSON `allowed_roles` and same-organization `allowed_user_ids`; sets document-level read access. |
+| `POST /api/documents/{id}/reindex` | Authenticated | Queues reprocessing of the current version; requires the original local file. |
+| `DELETE /api/documents/{id}` | Org admin | Returns 202 after soft-deleting all versions and queuing vector/original-file cleanup. SQL chunks are removed immediately; the cleanup job retries failures. |
+| `GET /api/ingestion-jobs/{id}` | Authenticated | Tenant-scoped job status, progress, attempts and error. |
 | `POST /api/query` | Authenticated | JSON `{ "question": "...", "history": [] }`; returns answer, citations, retrieval evidence and workflow display steps. |
 | `POST /api/data/query` | Authenticated | Currently returns 503; raw SQL execution is intentionally disabled until schema-aware validation and tenant isolation are implemented. |
 | `POST /api/actions` | Authenticated | JSON `{ "kind": "support_ticket|draft_email|report", "payload": {...} }`; creates a pending approval request only. |
@@ -19,4 +24,4 @@ All `/api/*` routes except the token endpoint require `Authorization: Bearer <ac
 | `GET /api/dashboard` | Authenticated | Basic document, query and pending-action counts for the current organization. |
 | `GET /health` | Public | Checks API process and PostgreSQL connection only. It does not check all dependencies. |
 
-Pagination, a stable versioned response envelope, document deletion, richer status codes and conversation endpoints are future API work. Do not infer execution success from `approved` action status.
+Pagination, a stable versioned response envelope, cancellation endpoint, richer status codes and conversation endpoints are future API work. Do not infer execution success from `approved` action status.

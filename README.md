@@ -12,20 +12,20 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-The API and UI are at `http://localhost:8000`; interactive API docs are at `/docs`. Compose supplies PostgreSQL and Qdrant. The local development bootstrap administrator is configured by `BOOTSTRAP_EMAIL` and `BOOTSTRAP_PASSWORD`. Change the example values before any shared deployment. The default login values are only convenience values for a throwaway local instance.
+The API and UI are at `http://localhost:8000`; interactive API docs are at `/docs`. Compose runs a migration job, API, separate ingestion worker, PostgreSQL and Qdrant. The local development bootstrap administrator is configured by `BOOTSTRAP_EMAIL` and `BOOTSTRAP_PASSWORD`. Change the example values before any shared deployment. The default login values are only convenience values for a throwaway local instance.
 
-For a Python-only run, create a virtual environment, install `pip install -e '.[dev]'`, set `DATABASE_URL=sqlite:///./enterprise_ai.db` and `QDRANT_URL=http://localhost:6333`, then run `uvicorn app.main:app --reload` from this directory. On first use, Sentence Transformers downloads the configured embedding model. Ingestion requires Qdrant and that model to be reachable.
+For a Python-only run, create a virtual environment, install `pip install -e '.[dev]'`, set `DATABASE_URL=sqlite:///./enterprise_ai.db` and `QDRANT_URL=http://localhost:6333`, run `alembic upgrade head`, then start both `uvicorn app.main:app --reload` and `python -m app.worker` from this directory. On first use, Sentence Transformers downloads the configured embedding model. Ingestion requires Qdrant and that model to be reachable.
 
 ## Included flows
 
-- Login with signed access tokens, password hashing, roles, organization scoped endpoints and same-organization admin user creation.
-- PDF, DOCX, CSV and TXT uploads; metadata extraction; deterministic overlap chunking; content deduplication; ingestion status and failure capture.
-- Sentence Transformer vectors in Qdrant, BM25 lexical ranks and reciprocal-rank fusion. Qdrant filters by organization; lexical candidates and returned chunks are independently scoped through SQL.
+- Login with signed access tokens, password hashing, roles, organization-scoped endpoints, same-organization admin user creation and document role/user allowlists.
+- PDF, DOCX, CSV and TXT uploads; content hashing; immutable same-name versions; soft deletion; manual reindex; persisted ingestion jobs with progress, bounded retry/backoff and stale-worker recovery; metadata extraction and overlap chunking.
+- Sentence Transformer vectors in Qdrant, BM25 lexical ranks and reciprocal-rank fusion, optional CrossEncoder reranking, and equipment-ID filtering. Qdrant filters by organization; candidates are intersected with current, non-deleted tenant chunks in SQL.
 - Gemini synthesis constrained to retrieved snippets, visible source markers, abstention when there are no hits, and conversation history supplied as context only.
 - Structured data analytics are not available yet. `POST /api/data/query` returns 503; the prior regex-only SQL executor was removed because it lacked a real schema, tenant enforcement and database-level least privilege.
 - Action request review queue with role-gated approval and audit events. Approval only changes request status; no external operation executes.
 - Web dashboard for uploads, document status, questions, evidence snippets, workflow steps, action requests and basic counts.
-- Explicit initial Alembic migration, Compose services, DB-aware health check, CI workflow and starter unit tests.
+- Explicit Alembic migrations, Compose API/migration/worker/database/vector services, DB-aware health check, CI workflow and unit/tenant test sets.
 
 ## API outline
 
@@ -34,6 +34,12 @@ For a Python-only run, create a virtual environment, install `pip install -e '.[
 | `POST /api/auth/token` | OAuth2 password grant for local accounts |
 | `GET /api/me` | Current user and organization |
 | `POST/GET /api/documents` | Upload and list tenant documents |
+| `GET /api/documents?include_history=true` | Include superseded versions |
+| `GET /api/documents/{id}/versions` | List a document family's versions |
+| `PUT /api/documents/{id}/access` | Admin-set document role/user allowlists |
+| `POST /api/documents/{id}/reindex` | Queue a reindex job for the current version |
+| `DELETE /api/documents/{id}` | Admin soft-delete a document family and remove indexed content |
+| `GET /api/ingestion-jobs/{id}` | Read tenant-scoped job status and progress |
 | `POST /api/query` | Hybrid evidence retrieval and answer synthesis |
 | `POST /api/data/query` | Reserved; returns 503 until safe industrial analytics are implemented |
 | `POST/GET /api/actions` | Request and list approval-gated actions |
@@ -48,7 +54,9 @@ flowchart LR
   U[Employee UI] --> API[FastAPI API]
   API --> AUTH[JWT and role checks]
   API --> PG[(PostgreSQL<br/>metadata, audit, actions)]
-  API --> ING[Ingestion service]
+  API --> JOB[(Persistent ingestion jobs)]
+  JOB --> WORKER[Separate local worker]
+  WORKER --> ING[Ingestion service]
   ING --> EXT[PDF / DOCX / CSV / TXT extraction]
   EXT --> EMB[Sentence Transformers]
   EMB --> Q[(Qdrant<br/>org-tagged vectors)]
@@ -62,11 +70,11 @@ flowchart LR
 
 ## Important engineering limits
 
-- FastAPI background tasks run ingestion in-process. They are suitable for a demo, not crash-safe delivery or large collections. Replace with a durable queue (e.g. Cloud Tasks or Pub/Sub plus Cloud Run worker), idempotent job records, bounded retries and dead-letter handling.
-- Development startup creates tables for a zero-setup demo. Production startup skips `create_all`; apply Alembic migrations through a controlled deployment step.
-- Qdrant and PostgreSQL hold separate copies of chunk content. A reconciler and deletion/version update lifecycle are required before treating updates as complete. Current duplicate content is deduplicated; replacing documents by filename/version is not implemented.
+- The local polling worker uses PostgreSQL job state and retry scheduling; it is not a substitute for Cloud Tasks/Pub/Sub, a managed dead-letter queue or multi-region worker operations.
+- Startup no longer creates tables automatically. Compose runs Alembic as a one-shot migration service; apply migrations as a controlled release step in other deployments.
+- Qdrant and PostgreSQL hold separate copies of chunk content. Search intersects vector candidates with current, non-deleted SQL chunks, preventing obsolete versions from being returned. There is no periodic reconciliation for orphan vectors.
 - Analytics and NL-to-SQL are not implemented. The previous regex SQL executor is removed; do not enable query execution until AST validation, tenant scoping and a dedicated read-only DB role are in place.
-- There is no organization provisioning endpoint, SSO/OIDC, document ACL beyond organization membership, rate limiting, WebSocket stream, agent graph, or external tool adapter in this first slice.
+- There is no organization provisioning endpoint, SSO/OIDC, PostgreSQL RLS, rate limiting, WebSocket stream, agent graph, or external tool adapter in this first slice. Document ACLs are app-enforced; their API tests require the full auth dependencies.
 - Citations identify source document and chunk section ordinal. PDF page-level and DOCX heading citations need richer extraction metadata.
 - The UI stores the access token in memory, and refresh requires signing in again.
 

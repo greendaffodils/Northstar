@@ -22,16 +22,24 @@ class User(Base):
 
 class Document(Base):
     __tablename__ = "documents"
-    __table_args__ = (UniqueConstraint("organization_id", "content_hash", name="uq_doc_org_hash"),)
+    __table_args__ = (UniqueConstraint("organization_id", "family_id", "version", name="uq_doc_version"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    family_id: Mapped[str] = mapped_column(String(36), index=True)
     uploaded_by: Mapped[str] = mapped_column(String(36))
     filename: Mapped[str] = mapped_column(String(255))
     content_hash: Mapped[str] = mapped_column(String(64))
     version: Mapped[int] = mapped_column(Integer, default=1)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     status: Mapped[str] = mapped_column(String(30), default="queued")
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    storage_path: Mapped[str] = mapped_column(String(1000))
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    allowed_roles: Mapped[list] = mapped_column(JSON, default=lambda: ["*"])
+    allowed_user_ids: Mapped[list] = mapped_column(JSON, default=list)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
 class Chunk(Base):
     __tablename__ = "chunks"
@@ -41,6 +49,26 @@ class Chunk(Base):
     ordinal: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+
+class IngestionJob(Base):
+    __tablename__ = "ingestion_jobs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    job_type: Mapped[str] = mapped_column(String(30), default="ingest")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    idempotency_key: Mapped[str] = mapped_column(String(128), unique=True)
+    status: Mapped[str] = mapped_column(String(30), default="queued", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=4)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cleanup_vector_ids: Mapped[list] = mapped_column(JSON, default=list)
+    payload_updates: Mapped[dict] = mapped_column(JSON, default=dict)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"

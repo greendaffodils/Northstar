@@ -2,7 +2,7 @@
 
 ## Current evidence
 
-There is no retrieval benchmark, answer-quality dataset, measured latency/cost result or load test. The five executed unit checks cover chunk overlap/content, CSV dimensions, upload signature mismatch and production-secret validation. Tenant API adversarial tests are present but were skipped in this environment because PyJWT and pwdlib are not installed. No scores are reported here because no reproducible benchmark has been run.
+There is no retrieval benchmark, answer-quality dataset, measured latency/cost result or load test. The latest suite reports 12 passed and 1 skipped; executed checks cover chunking/extraction, upload validation, production-secret validation, persisted worker lifecycle, version filtering and document-role retrieval filtering. Tenant API adversarial tests are present but are skipped because PyJWT and pwdlib are not installed. No scores are reported here because no reproducible benchmark has been run.
 
 ## Benchmark design
 

@@ -4,26 +4,26 @@
 
 Northstar is currently a small FastAPI modular monolith. `app/main.py` owns HTTP routes and startup; `app/core` contains settings, SQLAlchemy setup and JWT/password helpers; `app/models.py` defines the relational metadata; `app/services` contains extraction, retrieval, answer generation and (previously) SQL validation; the single HTML page in `app/templates` is plain browser JavaScript. Alembic, Compose and GitHub Actions files are present.
 
-The request path is browser → FastAPI → SQLAlchemy/PostgreSQL metadata and audit records. Uploads are stored to a local mounted directory, then FastAPI `BackgroundTasks` invokes extraction/chunking. Sentence Transformers embeds chunks into Qdrant. Queries combine Qdrant dense ranks with a BM25 ranking over tenant-scoped ready chunks, then optionally call Gemini. Action requests are persisted and can be marked approved; no external action is run. The current release has no conversation persistence, agent graph, work-order domain, or industrial data schema.
+The request path is browser → FastAPI → SQLAlchemy/PostgreSQL metadata and audit records. Uploads are stored to a local mounted directory and create a persistent job row. A separate `app.worker` polling process claims jobs, extracts/chunks content and writes vectors to Qdrant. Jobs persist attempts, progress, retry time and errors; stale running jobs can be reclaimed after a lease timeout. Queries combine org-filtered Qdrant ranks with BM25 over current, non-deleted tenant chunks, then optionally call Gemini. Action requests are persisted and can be marked approved; no external action is run. The current release has no conversation persistence, agent graph, work-order domain, or industrial data schema.
 
 ## Trust boundaries
 
 - Browser input is untrusted. Bearer tokens are verified and user state is reloaded from PostgreSQL. Authorization uses the current database role and organization.
-- The document upload path is tenant/id scoped and the extension plus a basic content signature is checked. File parsing and uncompressed archive limits are not yet hardened for hostile large documents.
-- PostgreSQL and Qdrant are separate stores. SQL queries for lexical retrieval are scoped by organization and document status; vector queries filter by organization and their IDs are intersected with ready SQL chunks.
+- The document upload path is tenant/id scoped and the extension plus a basic content signature is checked. Read access also checks document role/user allowlists before forming lexical candidates or Qdrant filters. File parsing and uncompressed archive limits are not yet hardened for hostile large documents.
+- PostgreSQL and Qdrant are separate stores. SQL queries for lexical retrieval filter organization, current version, deletion state and user access; vector queries filter by organization/current/access-allowed document IDs and are intersected with those SQL chunks.
 - Gemini receives the question, supplied conversation context and retrieved chunks. There is no validated citation entailment check and no prompt isolation beyond a natural-language instruction.
 - The former client SQL executor was removed because regex filtering is not a safe SQL boundary and the referenced table did not exist. `/api/data/query` now returns 503 until a schema-aware read-only implementation is introduced.
 - Approval currently means only that an admin changed a database status. It does not mean an industrial work order was executed.
 
 ## Current deployment topology
 
-Docker Compose defines one API container, PostgreSQL and Qdrant. Document storage is a local volume. There is no queue, Redis, object store, separate worker, tracing collector or cloud infrastructure. The API health route checks database connectivity only; it does not prove Qdrant, Gemini, embedding model or migration readiness.
+Docker Compose defines API and polling-worker containers, a one-shot migration container, PostgreSQL and Qdrant. Document storage is a local volume. There is no managed queue, Redis, object store, tracing collector or cloud infrastructure. The API health route checks database connectivity only; it does not prove Qdrant, Gemini, embedding model or migration readiness.
 
 ## Main architectural risks
 
-1. In-process background work is lost on process termination and upload bytes are also retained in task memory.
-2. Chunk creation and vector upsert are not a single transaction; partial states can occur. Retry/reconciliation and deletion/version semantics are missing.
-3. Authorization is organization-wide for documents; per-document ACLs and RLS are absent.
+1. The polling worker uses a one-hour lease without heartbeat. Very long jobs could be reclaimed while still running.
+2. Chunk storage, job state and vector upsert are not a single transaction. Deterministic point IDs, SQL intersection and retries reduce partial-state risk, but periodic reconciliation is still needed.
+3. Document ACLs are application-level role/user allowlists; PostgreSQL RLS and tenant-scoped foreign keys are absent.
 4. The token is a short-lived JWT with no refresh/revocation flow. Provisioning an initial production organization/admin is not implemented.
 5. Relational schema is still a generic knowledge/action schema. Industrial facts and safe analytics do not exist.
 6. Evaluation is four small unit tests and does not measure retrieval or answer quality.

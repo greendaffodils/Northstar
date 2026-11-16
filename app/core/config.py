@@ -1,4 +1,4 @@
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str = ""
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    reranker_enabled: bool = False
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    retrieval_dense_weight: float = Field(default=0.55, ge=0, le=1)
+    retrieval_min_dense_score: float = Field(default=0.30, ge=0, le=1)
     upload_dir: str = "./data/uploads"
     max_upload_mb: int = 25
     bootstrap_email: str = "admin@example.com"

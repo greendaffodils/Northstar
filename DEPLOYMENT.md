@@ -8,13 +8,13 @@ From this directory, copy `.env.example` to `.env`, replace the local JWT/passwo
 docker compose up --build
 ```
 
-The UI/API serves at `http://localhost:8000`; OpenAPI is available at `/docs`. Compose starts PostgreSQL and Qdrant and mounts `./data` for local document files. Do not expose these ports or the example database credentials to a network. With `APP_ENV=development`, app startup creates the demo schema and first local admin. That bootstrap path is not a production account lifecycle.
+The UI/API serves at `http://localhost:8000`; OpenAPI is available at `/docs`. Compose starts PostgreSQL, Qdrant, a one-shot Alembic migration service and a separate polling worker, and mounts `./data` for local document files. Do not expose these ports or the example database credentials to a network. With `APP_ENV=development`, app startup creates the first local admin after migrations. That bootstrap path is not a production account lifecycle.
 
-For a standalone local migration run after installing the project, use `alembic upgrade head` from the project directory. Production mode skips ORM `create_all`; apply migrations as a separate controlled deployment step before starting the API. Verify the migration state and application health after deploy.
+For a standalone local migration run after installing the project, use `alembic upgrade head` from the project directory, then run the API and `python -m app.worker` in separate processes. Production startup does not call ORM `create_all`; apply migrations as a separate controlled deployment step before starting the API. Verify the migration state and application health after deploy.
 
 ## Current deployment state
 
-Only local Compose configuration exists. No GCP resources, Terraform, deployed URL, Cloud SQL instance, Cloud Storage bucket, Pub/Sub topic, Cloud Run service or billed-cost evidence exists. The current API still uses in-process background tasks and local filesystem storage, so the current Compose layout is not a template for a horizontally scaled production deployment.
+Only local Compose configuration exists. No GCP resources, Terraform, deployed URL, Cloud SQL instance, Cloud Storage bucket, Pub/Sub topic, Cloud Run service or billed-cost evidence exists. The local PostgreSQL polling worker and local filesystem storage are not a substitute for managed cloud queues and object storage.
 
 ## GCP target topology (planned)
 
